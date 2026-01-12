@@ -1,0 +1,39 @@
+SUPABASE
+login : dontono.contact@gmail.com
+password : s1OPdLweM0AVD6wV
+
+API
+
+# 1. Aller dans le dossier api-jeezytv
+cd c:\Users\Dylan\Desktop\Home\Web\Sites\api-jeezytv
+
+# 2. Installer les dépendances
+npm install
+
+# 3. Créer le fichier .env.local avec tes variables
+# (DATABASE_URL, NEXTAUTH_SECRET, etc.)
+# Voir .env.example
+
+# 4. Créer les tables en BDD
+npm run prisma:migrate
+
+# 5. (Optionnel) Ajouter des données de test
+npm run seed
+
+# 6. Lancer l'API
+npm run dev
+
+# Voir l'interface Prisma Studio (visualiser les données)
+npm run prisma:studio
+
+# Compiler TypeScript
+npm run build
+
+# Lancer en production
+npm run start
+
+# Tests
+npm test
+
+# Linter
+npm run lint

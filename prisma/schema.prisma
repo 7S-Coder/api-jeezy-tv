@@ -1,0 +1,221 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ============ AUTHENTICATION (NextAuth.js - Prisma Adapter) ============
+
+model User {
+  id                    String          @id @default(cuid())
+  name                  String?
+  email                 String?         @unique
+  emailVerified         DateTime?
+  image                 String?
+  password              String?
+  
+  // Roles & Statuts
+  role                  UserRole        @default(USER)
+  vipStatus             VIPSubscription? @relation("UserVIP")
+  isActive              Boolean         @default(true)
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  // Relations NextAuth
+  accounts              Account[]
+  sessions              Session[]
+  
+  // Relations métier
+  jeezBalance           JeezBalance?    @relation("UserBalance")
+  transactions          Transaction[]   @relation("UserTransactions")
+  paymentOrders         PayPalOrder[]   @relation("UserPayments")
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+enum UserRole {
+  USER
+  VIP
+  ADMIN
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?  @db.Text
+  access_token       String?  @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?  @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ============ PORTEFEUILLE JEEZ (Monnaie virtuelle) ============
+
+model JeezBalance {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  balanceAmount Decimal   @default(0) @db.Decimal(10, 2)
+  lastUpdated   DateTime  @updatedAt
+  createdAt     DateTime  @default(now())
+
+  user          User      @relation("UserBalance", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("jeez_balances")
+}
+
+// ============ ABONNEMENT VIP ============
+
+model VIPSubscription {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  isActive        Boolean   @default(true)
+  startDate       DateTime  @default(now())
+  expiresAt       DateTime
+  planType        VIPPlan   @default(MONTHLY)
+  autoRenew       Boolean   @default(true)
+  renewalDate     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user            User      @relation("UserVIP", fields: [userId], references: [id], onDelete: Cascade)
+  transactions    Transaction[] @relation("VIPTransaction")
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("vip_subscriptions")
+}
+
+enum VIPPlan {
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+}
+
+// ============ TRANSACTIONS (Ledger atomique) ============
+
+model Transaction {
+  id              String            @id @default(cuid())
+  // Clé d'idempotence pour éviter les doublons
+  transactionId   String            @unique
+  userId          String
+  transactionType TransactionType
+  amount          Decimal           @db.Decimal(10, 2)
+  status          TransactionStatus @default(PENDING)
+  paymentMethod   PaymentMethod     @default(PAYPAL)
+  
+  // Référence PayPal
+  orderId         String?           @unique
+  captureId       String?
+  
+  // Audit trail
+  description     String?
+  metadata        String?           @db.Text // JSON stringifié
+  createdAt       DateTime          @default(now())
+  completedAt     DateTime?
+  failureReason   String?
+
+  user            User              @relation("UserTransactions", fields: [userId], references: [id], onDelete: Cascade)
+  paypalOrder     PayPalOrder?      @relation("TransactionOrder", fields: [paypalOrderId], references: [id])
+  paypalOrderId   String?           @unique
+  vipTransaction  Transaction[]     @relation("VIPTransactionChild")
+  vipParent       Transaction?      @relation("VIPTransactionChild", fields: [vipTransactionId], references: [id])
+  vipTransactionId String?
+  vipSubscription VIPSubscription?  @relation("VIPTransaction", fields: [vipSubscriptionId], references: [id])
+  vipSubscriptionId String?
+
+  @@unique([userId, transactionId])
+  @@index([userId])
+  @@index([status])
+  @@index([paymentMethod])
+  @@index([createdAt])
+  @@map("transactions")
+}
+
+enum TransactionType {
+  JEEZ_PURCHASE      // Achat de Jeez
+  VIP_SUBSCRIPTION   // Abonnement VIP
+  REFUND             // Remboursement
+  ADJUSTMENT         // Ajustement (admin)
+}
+
+enum TransactionStatus {
+  PENDING      // En attente de validation PayPal
+  COMPLETED    // Complété
+  FAILED       // Échoué
+  REFUNDED     // Remboursé
+}
+
+enum PaymentMethod {
+  PAYPAL
+  CREDIT_CARD
+  WALLET
+}
+
+// ============ PAYPAL ORDERS (Webhook tracking) ============
+
+model PayPalOrder {
+  id              String    @id @default(cuid())
+  orderId         String    @unique
+  userId          String
+  amount          Decimal   @db.Decimal(10, 2)
+  currency        String    @default("USD")
+  status          String    // CREATED, APPROVED, COMPLETED, VOIDED, PAYER_ACTION_REQUIRED
+  payerEmail      String?
+  payerName       String?
+  intent          String    @default("CAPTURE") // CAPTURE ou AUTHORIZE
+  
+  // Webhook signature verification (sécurité)
+  webhookVerified Boolean   @default(false)
+  
+  createdAt       DateTime  @default(now())
+  completedAt     DateTime?
+  rawWebhookData  String?   @db.Text // JSON brut pour audit
+
+  user            User      @relation("UserPayments", fields: [userId], references: [id], onDelete: Cascade)
+  transaction     Transaction? @relation("TransactionOrder")
+
+  @@index([userId])
+  @@index([status])
+  @@index([orderId])
+  @@map("paypal_orders")
+}
