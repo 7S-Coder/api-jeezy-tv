@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
         id: true,
         email: true,
         name: true,
-        wallet: true,
+        jeezBalance: true,
         vipStatus: true,
       },
     });

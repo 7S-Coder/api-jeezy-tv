@@ -8,10 +8,8 @@
 // 4. Retourner seulement l'ordre ID (pas le token)
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { validateData, CreatePayPalOrderSchema } from "@/lib/validators";
-import { Decimal } from "@prisma/client/runtime/library";
+import jwt from "jsonwebtoken";
 
 /**
  * PRIX SYNCHRONISÉS avec le webhook
@@ -52,35 +50,51 @@ const PRODUCT_PRICES: Record<
   },
 };
 
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    },
+  });
+}
+
 export async function POST(request: NextRequest) {
   try {
-    // 1️⃣  SÉCURITÉ: Vérifier l'authentification
-    const session = await auth();
-
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const userId = (session.user as any).id;
-
-    // 2️⃣  Valider la requête
-    const body = await request.json();
-    const validation = validateData(CreatePayPalOrderSchema, body);
-
-    if (!validation.success) {
+    // 1️⃣  SÉCURITÉ: Vérifier l'authentification JWT
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
       return NextResponse.json(
-        { error: "Invalid request", details: validation.error },
-        { status: 400 }
+        { error: "Authorization required" },
+        { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
       );
     }
 
-    const { productType, amount, currency } = validation.data;
+    const token = authHeader.slice(7);
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || "test-secret-key");
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid token" },
+        { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
+      );
+    }
 
-    // 3️⃣  Vérifier que le produit existe dans nos prix
-    const productId =
-      productType === "JEEZ"
-        ? `jeez_${amount}_${(currency || "USD").toLowerCase()}`
-        : `vip_${amount}_${(currency || "USD").toLowerCase()}`;
+    const userId = decoded.userId;
+
+    // 2️⃣  Valider la requête
+    const body = await request.json();
+    const { productId } = body;
+
+    if (!productId) {
+      return NextResponse.json(
+        { error: "Product ID required" },
+        { status: 400, headers: { "Access-Control-Allow-Origin": "*" } }
+      );
+    }
 
     const productPrice = PRODUCT_PRICES[productId];
 
@@ -90,26 +104,37 @@ export async function POST(request: NextRequest) {
           error: "Product not found",
           available: Object.keys(PRODUCT_PRICES),
         },
-        { status: 400 }
+        { status: 400, headers: { "Access-Control-Allow-Origin": "*" } }
+      );
+    }
+
+    // 3️⃣  Récupérer l'utilisateur
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, name: true },
+    });
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "User not found" },
+        { status: 404, headers: { "Access-Control-Allow-Origin": "*" } }
       );
     }
 
     // 4️⃣  Créer l'ordre PayPal dans la BDD
-    // Cette étape enregistre l'intention d'achat avant de parler à PayPal
     const paypalOrder = await prisma.payPalOrder.create({
       data: {
         orderId: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         userId,
-        amount: new Decimal(productPrice.amount),
+        amount: new (require("@prisma/client").Decimal)(productPrice.amount),
         currency: productPrice.currency,
         status: "CREATED",
-        payerEmail: session.user.email,
+        payerEmail: user.email,
         intent: "CAPTURE",
       },
     });
 
-    // 5️⃣  Préparer la réponse pour le client
-    // Le client utilisera cet orderId pour appeler le bouton PayPal
+    // 5️⃣  Retourner l'ordre créé
     return NextResponse.json(
       {
         success: true,
@@ -118,19 +143,18 @@ export async function POST(request: NextRequest) {
           amount: productPrice.amount,
           currency: productPrice.currency,
           productId,
-          description:
-            productType === "JEEZ"
-              ? `${amount} Jeez tokens`
-              : `VIP ${amount} subscription`,
+          description: productId.includes("jeez")
+            ? `${productId.split("_")[1]} Jeez tokens`
+            : `VIP subscription`,
         },
       },
-      { status: 200 }
+      { status: 200, headers: { "Access-Control-Allow-Origin": "*" } }
     );
   } catch (error) {
     console.error("[PayPal Create Order] Error:", error);
     return NextResponse.json(
-      { error: "Failed to create order" },
-      { status: 500 }
+      { error: String(error) },
+      { status: 500, headers: { "Access-Control-Allow-Origin": "*" } }
     );
   }
 }
