@@ -19,24 +19,50 @@ export async function OPTIONS(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password } = body;
+    const { emailOrUsername, password } = body;
 
-    if (!email || !password) {
+    if (!emailOrUsername || !password) {
       return NextResponse.json(
-        { error: "Email and password required" },
-        { status: 400 }
+        { error: "Email or username and password required" },
+        { 
+          status: 400,
+          headers: { "Access-Control-Allow-Origin": "*" }
+        }
       );
     }
 
-    // Chercher l'utilisateur
-    const user = await prisma.user.findUnique({
-      where: { email },
+    // Chercher l'utilisateur par email OU par name (username)
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: emailOrUsername },
+          { name: emailOrUsername },
+        ],
+      },
     });
 
     if (!user) {
       return NextResponse.json(
         { error: "Invalid credentials" },
-        { status: 401 }
+        { 
+          status: 401,
+          headers: { "Access-Control-Allow-Origin": "*" }
+        }
+      );
+    }
+
+    // Vérifier que l'email a été confirmé
+    if (!user.emailVerified) {
+      return NextResponse.json(
+        { 
+          error: "Email not verified",
+          message: "Veuillez vérifier votre email avant de vous connecter. Vous pouvez demander un nouvel email de vérification.",
+          requiresVerification: true,
+        },
+        { 
+          status: 403,
+          headers: { "Access-Control-Allow-Origin": "*" }
+        }
       );
     }
 
@@ -46,7 +72,10 @@ export async function POST(request: NextRequest) {
     if (!isValidPassword) {
       return NextResponse.json(
         { error: "Invalid credentials" },
-        { status: 401 }
+        { 
+          status: 401,
+          headers: { "Access-Control-Allow-Origin": "*" }
+        }
       );
     }
 
@@ -67,13 +96,16 @@ export async function POST(request: NextRequest) {
           name: user.name,
         },
       },
-      { status: 200 }
+      {
+        status: 200,
+        headers: { "Access-Control-Allow-Origin": "*" }
+      }
     );
   } catch (error) {
     console.error("[SIGNIN]", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500, headers: { "Access-Control-Allow-Origin": "*" } }
     );
   }
 }

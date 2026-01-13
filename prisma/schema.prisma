@@ -20,6 +20,10 @@ model User {
   image                 String?
   password              String?
   
+  // Email Verification
+  verificationToken     String?         @unique
+  verificationTokenExpires DateTime?
+  
   // Roles & Statuts
   role                  UserRole        @default(USER)
   vipStatus             VIPSubscription? @relation("UserVIP")
