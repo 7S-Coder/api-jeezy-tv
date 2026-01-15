@@ -81,21 +81,19 @@ export async function POST(request: NextRequest) {
     const vipStatus = await prisma.vIPSubscription.upsert({
       where: { userId: user.id },
       update: {
-        plan: subscriptionId.includes("annual") ? "annual" : "monthly",
-        subscriptionId,
+        planType: subscriptionId.includes("annual") ? "ANNUAL" : "MONTHLY",
         startDate,
         expiresAt: endDate,
         isActive: true,
-        status: "ACTIVE",
+        autoRenew: true,
       },
       create: {
         userId: user.id,
-        plan: subscriptionId.includes("annual") ? "annual" : "monthly",
-        subscriptionId,
+        planType: subscriptionId.includes("annual") ? "ANNUAL" : "MONTHLY",
         startDate,
         expiresAt: endDate,
         isActive: true,
-        status: "ACTIVE",
+        autoRenew: true,
       },
     });
 

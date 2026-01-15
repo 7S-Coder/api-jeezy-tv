@@ -27,7 +27,7 @@ export async function sendVerificationEmail(
       to: email,
       subject: "Vérifiez votre email - Jeezy TV",
       html: `
-        <h1>Bienvenue sur Jeezy TV! 🎉</h1>
+        <h1>Bienvenue sur Jeezy TV. </h1>
         <p>Veuillez vérifier votre adresse email en cliquant sur le lien ci-dessous:</p>
         <a href="${verificationLink}" style="
           display: inline-block;

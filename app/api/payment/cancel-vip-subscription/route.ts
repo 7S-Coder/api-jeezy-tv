@@ -34,30 +34,37 @@ export async function POST(request: NextRequest) {
     let decoded: any;
     try {
       decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || "test-secret-key");
-    } catch {
+    } catch (err) {
+      console.error("[cancel-vip-subscription] JWT verify error:", err);
       return NextResponse.json(
         { error: "Invalid token" },
         { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
       );
     }
 
-    const body = await request.json();
-    const { subscriptionId } = body;
+    console.log("[cancel-vip-subscription] Decoded token:", decoded);
+    const userId = decoded.sub || decoded.id || decoded.userId;
+    const email = decoded.email;
+    console.log("[cancel-vip-subscription] Extracted userId:", userId, "email:", email);
 
-    if (!subscriptionId) {
+    // Si pas d'ID, chercher par email
+    if (!userId && !email) {
       return NextResponse.json(
-        { error: "Subscription ID required" },
-        { status: 400, headers: { "Access-Control-Allow-Origin": "*" } }
+        { error: "No user identification in token" },
+        { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
       );
     }
 
     // Vérifier que l'utilisateur existe
     const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
+      where: userId ? { id: userId } : { email },
       select: { id: true, vipStatus: true },
     });
 
+    console.log("[cancel-vip-subscription] User found:", user);
+
     if (!user) {
+      console.log("[cancel-vip-subscription] User not found with", userId ? "id" : "email", ":", userId || email);
       return NextResponse.json(
         { error: "User not found" },
         { status: 404, headers: { "Access-Control-Allow-Origin": "*" } }
@@ -65,6 +72,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!user.vipStatus) {
+      console.log("[cancel-vip-subscription] No VIP status for user:", user.id);
       return NextResponse.json(
         { error: "No active VIP subscription found" },
         { status: 404, headers: { "Access-Control-Allow-Origin": "*" } }
@@ -76,7 +84,6 @@ export async function POST(request: NextRequest) {
       where: { userId: user.id },
       data: {
         isActive: false,
-        status: "CANCELLED",
         expiresAt: new Date(), // Expire immédiatement
       },
     });
