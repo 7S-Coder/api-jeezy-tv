@@ -103,12 +103,16 @@ export async function GET(request: Request) {
     });
 
     // Créditer la conta Jeez
-    await prisma.user.update({
-      where: { id: transaction.userId },
-      data: {
-        jeezBalance: {
+    await prisma.jeezBalance.upsert({
+      where: { userId: transaction.userId },
+      update: {
+        balanceAmount: {
           increment: jeezAmount,
         },
+      },
+      create: {
+        userId: transaction.userId,
+        balanceAmount: jeezAmount,
       },
     });
 
@@ -140,7 +144,7 @@ export async function GET(request: Request) {
 
       await resend.emails.send({
         from: process.env.EMAIL_FROM || 'noreply@jeezy-tv.com',
-        to: user.email,
+        to: user.email || 'noreply@jeezy-tv.com',
         subject: `Facture - Achat de ${jeezAmount} Jeez | Jeezy TV`,
         html: emailHtml,
       });

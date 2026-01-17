@@ -135,7 +135,7 @@ export async function signInAction(
  */
 export async function signOutAction(): Promise<ActionResponse<boolean>> {
   try {
-    await signOut({ redirectTo: "/" });
+    await signOut({ redirect: true });
     return { success: true, data: true };
   } catch (error) {
     console.error("[signOutAction] Error:", error);

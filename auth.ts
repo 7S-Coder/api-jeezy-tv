@@ -1,71 +1,104 @@
 // auth.ts
-// Configuration NextAuth.js complète - Point d'entrée unique
+// Configuration NextAuth.js v4 - Point d'entrée unique
 
-import NextAuth from "next-auth";
+import NextAuth, { type NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { authConfig } from "@/lib/auth/auth.config";
-import { prisma } from "@/lib/prisma";
 import bcrypt from "bcrypt";
 
-/**
- * ⚠️  SÉCURITÉ:
- * 1. Credentials Provider pour démo (utiliser OAuth en production: Google, GitHub)
- * 2. Validation stricte des credentials
- * 3. Sessions en base de données
- * 4. JWT signé et chiffré
- */
+const secret = process.env.NEXTAUTH_SECRET || "fallback-secret-key-min-32-characters-here-12345";
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  ...authConfig,
+export const authOptions: NextAuthOptions = {
   providers: [
-    /**
-     * Provider Credentials pour démo/développement
-     * ⚠️  EN PRODUCTION: Utiliser OAuth (Google, GitHub) ou passkeys
-     */
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        email: { label: "Email", type: "email", placeholder: "user@example.com" },
+        emailOrUsername: { label: "Email or Username", type: "text" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          throw new Error("Invalid credentials");
+        if (!credentials?.emailOrUsername || !credentials?.password) {
+          return null;
         }
 
-        // Chercher l'utilisateur
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
-        });
+        try {
+          // Lazy load prisma to avoid connection at build time
+          const { prisma } = await import("@/lib/prisma");
+          
+          // Chercher l'utilisateur par email OU par name (username)
+          const user = await prisma.user.findFirst({
+            where: {
+              OR: [
+                { email: credentials.emailOrUsername as string },
+                { name: credentials.emailOrUsername as string },
+              ],
+            },
+          });
 
-        if (!user || !user.password) {
-          throw new Error("User not found");
+          if (!user || !user.password) {
+            return null;
+          }
+
+          // Vérifier le mot de passe (bcrypt)
+          const isPasswordValid = await bcrypt.compare(
+            credentials.password as string,
+            user.password
+          );
+
+          if (!isPasswordValid) {
+            return null;
+          }
+
+          if (!user.isActive) {
+            return null;
+          }
+
+          // Retourner l'utilisateur
+          return {
+            id: user.id,
+            email: user.email || "",
+            name: user.name || "",
+            role: user.role || "USER",
+            isActive: user.isActive,
+          };
+        } catch (error) {
+          console.error("[Auth Error]", error);
+          return null;
         }
-
-        // Vérifier le mot de passe (bcrypt)
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password as string,
-          user.password
-        );
-
-        if (!isPasswordValid) {
-          throw new Error("Invalid password");
-        }
-
-        if (!user.isActive) {
-          throw new Error("User account is disabled");
-        }
-
-        // Retourner l'utilisateur (sera stocké dans la session)
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
-          role: user.role,
-          isActive: user.isActive,
-        };
       },
     }),
   ],
-});
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+        token.role = (user as any).role;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        (session.user as any).id = token.id;
+        (session.user as any).role = token.role;
+      }
+      return session;
+    },
+  },
+  pages: {
+    signIn: "/signin",
+    error: "/auth/error",
+  },
+  secret,
+};
+
+const handler = NextAuth(authOptions);
+export { handler as GET, handler as POST };
+
+// Export signIn and signOut
+import { signIn as nextSignIn, signOut as nextSignOut } from "next-auth/react";
+export { nextSignIn as signIn, nextSignOut as signOut };
+
+// Export auth wrapper for server-side usage
+import { getServerSession } from "next-auth";
+export async function auth() {
+  return await getServerSession(authOptions);
+}

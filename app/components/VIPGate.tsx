@@ -17,7 +17,7 @@ export function VIPGate({ children, fallback }: VIPGateProps) {
   useEffect(() => {
     async function checkVIPStatus() {
       const result = await isUserVIPAction();
-      setIsVIP(result.success ? result.data : false);
+      setIsVIP(result.success && result.data ? result.data : false);
     }
 
     checkVIPStatus();

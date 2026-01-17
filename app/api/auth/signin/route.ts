@@ -67,6 +67,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Vérifier le mot de passe
+    if (!user.password) {
+      return NextResponse.json(
+        { error: "Invalid credentials" },
+        { 
+          status: 401,
+          headers: { "Access-Control-Allow-Origin": "*" }
+        }
+      );
+    }
+
     const isValidPassword = await bcrypt.compare(password, user.password);
 
     if (!isValidPassword) {

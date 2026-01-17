@@ -90,6 +90,13 @@ export async function POST(request: NextRequest) {
       });
 
       // Créer la souscription PayPal
+      if (!user.email) {
+        return NextResponse.json(
+          { error: "User email is required" },
+          { status: 400, headers: { "Access-Control-Allow-Origin": "*" } }
+        );
+      }
+
       const { subscriptionId, approveUrl } = await createPayPalSubscription({
         planId,
         subscriberEmail: user.email,
