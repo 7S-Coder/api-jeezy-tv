@@ -2,9 +2,14 @@
 // Créer un abonnement VIP avec PayPal
 
 import { prisma } from "@/lib/prisma";
-import { createPayPalPlan, createPayPalSubscription } from "@/lib/paypal-helpers";
+import { createPayPalSubscription } from "@/lib/paypal-helpers";
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
+
+// PayPal VIP Plan IDs (created with updated prices)
+// Monthly: €2.99/month, Annual: €33.99/year
+const VIP_MONTHLY_PLAN_ID = 'P-2MC93743TL870722ANFV2JRQ';
+const VIP_ANNUAL_PLAN_ID = 'P-9EB60680XC860510TNFV2JRQ';
 
 export async function OPTIONS(request: NextRequest) {
   return new NextResponse(null, {
@@ -65,10 +70,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Mapper les plans aux données PayPal
-    const planConfig: Record<string, { name: string; price: string; interval: string }> = {
-      vip_monthly: { name: "VIP Monthly", price: "3.00", interval: "MONTH" },
-      vip_annual: { name: "VIP Annual", price: "23.00", interval: "YEAR" },
+    // Mapper les plans aux IDs PayPal et données
+    const planConfig: Record<string, { planId: string; name: string; price: string; interval: string }> = {
+      vip_monthly: { planId: VIP_MONTHLY_PLAN_ID, name: "VIP Monthly", price: "2.99", interval: "MONTH" },
+      vip_annual: { planId: VIP_ANNUAL_PLAN_ID, name: "VIP Annual", price: "33.99", interval: "YEAR" },
     };
 
     const config = planConfig[plan];
@@ -80,14 +85,8 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      // Créer le plan PayPal
-      const planId = await createPayPalPlan({
-        name: config.name,
-        description: `${config.name} - Jeezy TV VIP Subscription`,
-        price: config.price,
-        interval: config.interval as 'MONTH' | 'YEAR',
-        currency: 'EUR',
-      });
+      // Utiliser le plan PayPal existant (pas de création dynamique)
+      const planId = config.planId;
 
       // Créer la souscription PayPal
       if (!user.email) {

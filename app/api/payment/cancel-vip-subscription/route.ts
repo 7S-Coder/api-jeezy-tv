@@ -55,10 +55,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Vérifier que l'utilisateur existe
+    // Vérifier que l'utilisateur existe et a une subscription VIP
     const user = await prisma.user.findUnique({
-      where: userId ? { id: userId } : { email },
-      select: { id: true, vipStatus: true },
+      where: userId ? { id: userId } : { email: email! },
+      select: { id: true },
     });
 
     console.log("[cancel-vip-subscription] User found:", user);
@@ -71,8 +71,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!user.vipStatus) {
-      console.log("[cancel-vip-subscription] No VIP status for user:", user.id);
+    // Vérifier qu'il a une subscription VIP active
+    const vipSubscription = await prisma.vIPSubscription.findUnique({
+      where: { userId: user.id },
+    });
+
+    if (!vipSubscription || !vipSubscription.isActive) {
+      console.log("[cancel-vip-subscription] No active VIP subscription for user:", user.id);
       return NextResponse.json(
         { error: "No active VIP subscription found" },
         { status: 404, headers: { "Access-Control-Allow-Origin": "*" } }
