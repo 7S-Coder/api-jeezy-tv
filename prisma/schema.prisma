@@ -19,6 +19,7 @@ model User {
   emailVerified         DateTime?
   image                 String?
   password              String?
+  profileColor          String?         @default("#3498db") // Random user color
   
   // Email Verification
   verificationToken     String?         @unique

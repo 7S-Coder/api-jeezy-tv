@@ -8,6 +8,7 @@ declare module "next-auth" {
     id: string;
     role: "USER" | "VIP" | "ADMIN";
     isActive: boolean;
+    profileColor?: string;
   }
 
   interface Session {
@@ -18,6 +19,7 @@ declare module "next-auth" {
       image?: string | null;
       role: "USER" | "VIP" | "ADMIN";
       isActive: boolean;
+      profileColor?: string;
     };
   }
 }
@@ -26,5 +28,6 @@ declare module "next-auth/jwt" {
   interface JWT {
     id: string;
     role: "USER" | "VIP" | "ADMIN";
+    profileColor?: string;
   }
 }

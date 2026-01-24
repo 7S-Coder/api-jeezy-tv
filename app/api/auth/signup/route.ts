@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcrypt";
 import { validateData, CreateUserSchema } from "@/lib/validators";
 import { sendVerificationEmail } from "@/lib/email";
+import { generateUserColor } from "@/lib/colors";
 
 // Handle CORS preflight
 export async function OPTIONS(request: NextRequest) {
@@ -68,6 +69,9 @@ export async function POST(request: NextRequest) {
     // Générer le token de vérification
     const verificationToken = generateVerificationToken();
     const verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+    
+    // Générer une couleur aléatoire pour l'utilisateur (non-VIP)
+    const profileColor = generateUserColor(false);
 
     // Créer l'utilisateur avec wallet
     const user = await prisma.user.create({
@@ -75,6 +79,7 @@ export async function POST(request: NextRequest) {
         email,
         password: hashedPassword,
         name,
+        profileColor,
         verificationToken,
         verificationTokenExpires,
         emailVerified: null, // Non vérifié pour le moment
@@ -88,6 +93,7 @@ export async function POST(request: NextRequest) {
         id: true,
         email: true,
         name: true,
+        profileColor: true,
         emailVerified: true,
       },
     });
@@ -108,6 +114,7 @@ export async function POST(request: NextRequest) {
           userId: user.id,
           email: user.email,
           name: user.name,
+          profileColor: user.profileColor,
           emailVerified: user.emailVerified,
         },
       },
