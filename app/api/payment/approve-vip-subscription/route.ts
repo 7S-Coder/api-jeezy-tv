@@ -43,6 +43,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log('[approve-vip-subscription] Decoded token:', {
+      userId: decoded.userId,
+      email: decoded.email,
+      exp: new Date((decoded.exp as number) * 1000),
+    });
+
     const body = await request.json();
     const { subscriptionId } = body;
 
@@ -54,17 +60,28 @@ export async function POST(request: NextRequest) {
     }
 
     // Vérifier que l'utilisateur existe
+    if (!decoded.userId) {
+      console.error('[approve-vip-subscription] No userId in token');
+      return NextResponse.json(
+        { error: "Invalid token: userId missing" },
+        { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
+      );
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
       select: { id: true, email: true, vipStatus: true },
     });
 
     if (!user) {
+      console.error('[approve-vip-subscription] User not found:', decoded.userId);
       return NextResponse.json(
         { error: "User not found" },
         { status: 404, headers: { "Access-Control-Allow-Origin": "*" } }
       );
     }
+
+    console.log('[approve-vip-subscription] User found:', { id: user.id, email: user.email });
 
     // Calculer les dates d'expiration
     const startDate = new Date();
