@@ -10,6 +10,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import jwt from "jsonwebtoken";
+import { getTokenFromRequest } from "@/lib/auth/token-helper";
+import { getJWTSecret } from "@/lib/auth/get-secret";
 
 /**
  * PRIX SYNCHRONISÉS avec le webhook
@@ -63,19 +65,18 @@ export async function OPTIONS(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // 1️⃣  SÉCURITÉ: Vérifier l'authentification JWT
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
+    // 1️⃣  SÉCURITÉ: Vérifier l'authentification JWT (du header ou du cookie)
+    const token = getTokenFromRequest(request);
+    if (!token) {
       return NextResponse.json(
         { error: "Authorization required" },
         { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
       );
     }
 
-    const token = authHeader.slice(7);
     let decoded: any;
     try {
-      decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || "test-secret-key");
+      decoded = jwt.verify(token, getJWTSecret());
     } catch {
       return NextResponse.json(
         { error: "Invalid token" },

@@ -3,15 +3,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { getJWTSecret } from "@/lib/auth/get-secret";
 
 // Handle CORS preflight
 export async function OPTIONS(request: NextRequest) {
   return new NextResponse(null, {
     status: 200,
     headers: {
-      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Origin": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001",
       "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Credentials": "true"
     },
   });
 }
@@ -89,17 +91,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Créer un token JWT simple (pour les tests)
+    // Créer un token JWT
     const token = jwt.sign(
       { userId: user.id, email: user.email },
-      process.env.NEXTAUTH_SECRET || "test-secret-key",
+      getJWTSecret(),
       { expiresIn: "7d" }
     );
 
-    return NextResponse.json(
+    // Créer la réponse avec le cookie HTTP-only
+    const response = NextResponse.json(
       {
         success: true,
-        token,
         user: {
           id: user.id,
           email: user.email,
@@ -108,9 +110,25 @@ export async function POST(request: NextRequest) {
       },
       {
         status: 200,
-        headers: { "Access-Control-Allow-Origin": "*" }
+        headers: { 
+          "Access-Control-Allow-Origin": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001",
+          "Access-Control-Allow-Credentials": "true"
+        }
       }
     );
+
+    // Définir le cookie HTTP-only (sécurisé)
+    response.cookies.set({
+      name: 'backendToken',
+      value: token,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // HTTPS only en production
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60, // 7 jours
+      path: '/',
+    });
+
+    return response;
   } catch (error) {
     console.error("[SIGNIN]", error);
     return NextResponse.json(

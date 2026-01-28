@@ -4,6 +4,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
+import { getTokenFromRequest } from "@/lib/auth/token-helper";
 
 const secret = new TextEncoder().encode(process.env.NEXTAUTH_SECRET || "");
 
@@ -21,15 +22,14 @@ export async function OPTIONS(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // 1️⃣  SÉCURITÉ: Vérifier l'authentification
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
+    const token = getTokenFromRequest(request);
+    if (!token) {
       return NextResponse.json(
         { error: "Authorization required" },
         { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
       );
     }
 
-    const token = authHeader.slice(7);
     let decoded: any;
     try {
       const result = await jwtVerify(token, secret);

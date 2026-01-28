@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { createPayPalSubscription } from "@/lib/paypal-helpers";
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
+import { getTokenFromRequest } from "@/lib/auth/token-helper";
+import { getJWTSecret } from "@/lib/auth/get-secret";
 
 // PayPal VIP Plan IDs (created with updated prices)
 // Monthly: €2.99/month, Annual: €33.99/year
@@ -28,18 +30,17 @@ export async function OPTIONS(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
+    const token = getTokenFromRequest(request);
+    if (!token) {
       return NextResponse.json(
         { error: "Authorization required" },
         { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
       );
     }
 
-    const token = authHeader.slice(7);
     let decoded: any;
     try {
-      decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || "test-secret-key");
+      decoded = jwt.verify(token, getJWTSecret());
     } catch {
       return NextResponse.json(
         { error: "Invalid token" },

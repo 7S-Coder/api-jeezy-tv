@@ -4,6 +4,8 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
+import { getTokenFromRequest } from "@/lib/auth/token-helper";
+import { getJWTSecret } from "@/lib/auth/get-secret";
 
 export async function OPTIONS(request: NextRequest) {
   return new NextResponse(null, {
@@ -22,18 +24,17 @@ export async function OPTIONS(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
+    const token = getTokenFromRequest(request);
+    if (!token) {
       return NextResponse.json(
         { error: "Authorization required" },
         { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
       );
     }
 
-    const token = authHeader.slice(7);
     let decoded: any;
     try {
-      decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || "test-secret-key");
+      decoded = jwt.verify(token, getJWTSecret());
     } catch (err) {
       console.error("[cancel-vip-subscription] JWT verify error:", err);
       return NextResponse.json(

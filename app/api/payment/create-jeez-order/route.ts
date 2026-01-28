@@ -3,6 +3,8 @@
 
 import { prisma } from '@/lib/prisma';
 import { jwtVerify } from 'jose';
+import { NextRequest } from 'next/server';
+import { getTokenFromRequest } from '@/lib/auth/token-helper';
 
 async function verifyToken(token: string) {
   try {
@@ -30,12 +32,12 @@ export async function OPTIONS() {
 export async function POST(request: Request) {
   try {
     // Vérifier l'authentification
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const nextRequest = request as NextRequest;
+    const token = getTokenFromRequest(nextRequest);
+    if (!token) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const token = authHeader.slice(7);
     let decoded;
     try {
       decoded = await verifyToken(token);

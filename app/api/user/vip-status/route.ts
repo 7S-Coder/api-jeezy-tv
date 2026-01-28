@@ -5,18 +5,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { SubscriptionService } from "@/lib/services/SubscriptionService";
 import { prisma } from "@/lib/prisma";
+import { getTokenFromRequest } from "@/lib/auth/token-helper";
 
 const secret = new TextEncoder().encode(process.env.NEXTAUTH_SECRET || "");
 
 export async function GET(request: NextRequest) {
   try {
-    // 1️⃣  SÉCURITÉ: Vérifier l'authentification via JWT
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
+    // 1️⃣  SÉCURITÉ: Vérifier l'authentification via JWT (du header ou du cookie)
+    const token = getTokenFromRequest(request);
+    if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const token = authHeader.slice(7);
     const decoded = await jwtVerify(token, secret);
     const userId = (decoded.payload as any).sub || (decoded.payload as any).id;
 
