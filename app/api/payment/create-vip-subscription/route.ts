@@ -14,12 +14,14 @@ const VIP_MONTHLY_PLAN_ID = 'P-2MC93743TL870722ANFV2JRQ';
 const VIP_ANNUAL_PLAN_ID = 'P-9EB60680XC860510TNFV2JRQ';
 
 export async function OPTIONS(request: NextRequest) {
+  const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
   return new NextResponse(null, {
     status: 200,
     headers: {
-      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Origin": FRONTEND,
       "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Allow-Credentials": "true",
     },
   });
 }
@@ -32,9 +34,10 @@ export async function POST(request: NextRequest) {
   try {
     const token = getTokenFromRequest(request);
     if (!token) {
+      const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
       return NextResponse.json(
         { error: "Authorization required" },
-        { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
+        { status: 401, headers: { "Access-Control-Allow-Origin": FRONTEND, "Access-Control-Allow-Credentials": "true" } }
       );
     }
 
@@ -42,9 +45,10 @@ export async function POST(request: NextRequest) {
     try {
       decoded = jwt.verify(token, getJWTSecret());
     } catch {
+      const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
       return NextResponse.json(
         { error: "Invalid token" },
-        { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
+        { status: 401, headers: { "Access-Control-Allow-Origin": FRONTEND, "Access-Control-Allow-Credentials": "true" } }
       );
     }
 
@@ -52,9 +56,10 @@ export async function POST(request: NextRequest) {
     const { plan } = body;
 
     if (!plan) {
+      const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
       return NextResponse.json(
         { error: "Plan required (vip_monthly or vip_annual)" },
-        { status: 400, headers: { "Access-Control-Allow-Origin": "*" } }
+        { status: 400, headers: { "Access-Control-Allow-Origin": FRONTEND, "Access-Control-Allow-Credentials": "true" } }
       );
     }
 
@@ -65,9 +70,10 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
+      const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
       return NextResponse.json(
         { error: "User not found" },
-        { status: 404, headers: { "Access-Control-Allow-Origin": "*" } }
+        { status: 404, headers: { "Access-Control-Allow-Origin": FRONTEND, "Access-Control-Allow-Credentials": "true" } }
       );
     }
 
@@ -79,9 +85,10 @@ export async function POST(request: NextRequest) {
 
     const config = planConfig[plan];
     if (!config) {
+      const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
       return NextResponse.json(
         { error: "Invalid plan. Use vip_monthly or vip_annual" },
-        { status: 400, headers: { "Access-Control-Allow-Origin": "*" } }
+        { status: 400, headers: { "Access-Control-Allow-Origin": FRONTEND, "Access-Control-Allow-Credentials": "true" } }
       );
     }
 
@@ -91,9 +98,10 @@ export async function POST(request: NextRequest) {
 
       // Créer la souscription PayPal
       if (!user.email) {
+        const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
         return NextResponse.json(
           { error: "User email is required" },
-          { status: 400, headers: { "Access-Control-Allow-Origin": "*" } }
+          { status: 400, headers: { "Access-Control-Allow-Origin": FRONTEND, "Access-Control-Allow-Credentials": "true" } }
         );
       }
 
@@ -120,22 +128,25 @@ export async function POST(request: NextRequest) {
 
       console.log("[create-vip-subscription] Subscription created:", subscriptionData);
 
+      const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
       return NextResponse.json(subscriptionData, {
         status: 200,
-        headers: { "Access-Control-Allow-Origin": "*" },
+        headers: { "Access-Control-Allow-Origin": FRONTEND, "Access-Control-Allow-Credentials": "true" },
       });
     } catch (paypalError) {
       console.error("[create-vip-subscription] PayPal Error:", paypalError);
+      const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
       return NextResponse.json(
         { error: String(paypalError) },
-        { status: 400, headers: { "Access-Control-Allow-Origin": "*" } }
+        { status: 400, headers: { "Access-Control-Allow-Origin": FRONTEND, "Access-Control-Allow-Credentials": "true" } }
       );
     }
   } catch (error) {
     console.error("[create-vip-subscription] Error:", error);
+    const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500, headers: { "Access-Control-Allow-Origin": "*" } }
+      { status: 500, headers: { "Access-Control-Allow-Origin": FRONTEND, "Access-Control-Allow-Credentials": "true" } }
     );
   }
 }

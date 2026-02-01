@@ -9,7 +9,6 @@ export function getTokenFromRequest(request: NextRequest): string | null {
   if (authHeader?.startsWith("Bearer ")) {
     return authHeader.slice(7);
   }
-
   // 2️⃣  Essayer le cookie backendToken
   const token = request.cookies.get("backendToken")?.value;
   if (token) {

@@ -8,12 +8,14 @@ import { getTokenFromRequest } from "@/lib/auth/token-helper";
 import { getJWTSecret } from "@/lib/auth/get-secret";
 
 export async function OPTIONS(request: NextRequest) {
+  const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
   return new NextResponse(null, {
     status: 200,
     headers: {
-      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Origin": FRONTEND,
       "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Allow-Credentials": "true",
     },
   });
 }
@@ -26,9 +28,10 @@ export async function POST(request: NextRequest) {
   try {
     const token = getTokenFromRequest(request);
     if (!token) {
+      const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
       return NextResponse.json(
         { error: "Authorization required" },
-        { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
+        { status: 401, headers: { "Access-Control-Allow-Origin": FRONTEND, "Access-Control-Allow-Credentials": "true" } }
       );
     }
 
@@ -37,9 +40,10 @@ export async function POST(request: NextRequest) {
       decoded = jwt.verify(token, getJWTSecret());
     } catch (err) {
       console.error("[cancel-vip-subscription] JWT verify error:", err);
+      const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
       return NextResponse.json(
         { error: "Invalid token" },
-        { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
+        { status: 401, headers: { "Access-Control-Allow-Origin": FRONTEND, "Access-Control-Allow-Credentials": "true" } }
       );
     }
 
@@ -50,9 +54,10 @@ export async function POST(request: NextRequest) {
 
     // Si pas d'ID, chercher par email
     if (!userId && !email) {
+      const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
       return NextResponse.json(
         { error: "No user identification in token" },
-        { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
+        { status: 401, headers: { "Access-Control-Allow-Origin": FRONTEND, "Access-Control-Allow-Credentials": "true" } }
       );
     }
 
@@ -66,9 +71,10 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       console.log("[cancel-vip-subscription] User not found with", userId ? "id" : "email", ":", userId || email);
+      const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
       return NextResponse.json(
         { error: "User not found" },
-        { status: 404, headers: { "Access-Control-Allow-Origin": "*" } }
+        { status: 404, headers: { "Access-Control-Allow-Origin": FRONTEND, "Access-Control-Allow-Credentials": "true" } }
       );
     }
 
@@ -79,9 +85,10 @@ export async function POST(request: NextRequest) {
 
     if (!vipSubscription || !vipSubscription.isActive) {
       console.log("[cancel-vip-subscription] No active VIP subscription for user:", user.id);
+      const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
       return NextResponse.json(
         { error: "No active VIP subscription found" },
-        { status: 404, headers: { "Access-Control-Allow-Origin": "*" } }
+        { status: 404, headers: { "Access-Control-Allow-Origin": FRONTEND, "Access-Control-Allow-Credentials": "true" } }
       );
     }
 
@@ -102,6 +109,7 @@ export async function POST(request: NextRequest) {
 
     console.log("[cancel-vip-subscription] VIP cancelled:", cancelledVip);
 
+    const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
     return NextResponse.json(
       {
         success: true,
@@ -110,14 +118,15 @@ export async function POST(request: NextRequest) {
       },
       {
         status: 200,
-        headers: { "Access-Control-Allow-Origin": "*" },
+        headers: { "Access-Control-Allow-Origin": FRONTEND, "Access-Control-Allow-Credentials": "true" },
       }
     );
   } catch (error) {
     console.error("[cancel-vip-subscription] Error:", error);
+    const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500, headers: { "Access-Control-Allow-Origin": "*" } }
+      { status: 500, headers: { "Access-Control-Allow-Origin": FRONTEND, "Access-Control-Allow-Credentials": "true" } }
     );
   }
 }
