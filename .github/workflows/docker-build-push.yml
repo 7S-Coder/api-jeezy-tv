@@ -34,6 +34,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Debug: show computed image tags
+        run: |
+          echo "IMAGE_OWNER=$IMAGE_OWNER"
+          echo "TAGS=ghcr.io/$IMAGE_OWNER/api-jeezy-tv:latest"
+          echo "TAGS_SHA=ghcr.io/$IMAGE_OWNER/api-jeezy-tv:${GITHUB_SHA}"
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
