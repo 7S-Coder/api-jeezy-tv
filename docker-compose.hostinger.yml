@@ -1,0 +1,28 @@
+version: '3.8'
+
+# Docker Compose pour déployer sur Hostinger
+# Option A (préférée si vous publiez l'image sur Docker Hub / Registry) :
+# - remplacez MON_USER par votre nom Docker Hub et utilisez l'image publiée.
+
+services:
+  api:
+    image: magic7siete/api-jeezy-tv:stable
+    # Si vous préférez que Hostinger construise l'image depuis votre repo, remplacez 'image' par :
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    env_file: .env
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+# Notes:
+# - Hostinger Docker Manager accepte une URL GitHub/GitLab/bitbucket vers ce fichier.
+# - Ne poussez jamais de véritables secrets dans le repo; utilisez le panneau Env Vars de Hostinger
+#   ou stockez un fichier `.env` sécurisé sur le serveur.

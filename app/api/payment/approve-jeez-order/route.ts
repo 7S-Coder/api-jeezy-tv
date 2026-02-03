@@ -4,8 +4,6 @@
 import { prisma } from '@/lib/prisma';
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -142,12 +140,18 @@ export async function GET(request: Request) {
         </div>
       `;
 
-      await resend.emails.send({
-        from: process.env.EMAIL_FROM || 'noreply@jeezy-tv.com',
-        to: user.email || 'noreply@jeezy-tv.com',
-        subject: `Facture - Achat de ${jeezAmount} Jeez | Jeezy TV`,
-        html: emailHtml,
-      });
+      const apiKey = process.env.RESEND_API_KEY;
+      if (apiKey) {
+        const resend = new Resend(apiKey);
+        await resend.emails.send({
+          from: process.env.EMAIL_FROM || 'noreply@jeezy-tv.com',
+          to: user.email || 'noreply@jeezy-tv.com',
+          subject: `Facture - Achat de ${jeezAmount} Jeez | Jeezy TV`,
+          html: emailHtml,
+        });
+      } else {
+        console.warn('[approve-jeez-order] RESEND_API_KEY not set, skipping email send.');
+      }
     } catch (emailError) {
       console.error('[Email Error]', emailError);
       // Ne pas échouer la transaction si l'email ne s'envoie pas
