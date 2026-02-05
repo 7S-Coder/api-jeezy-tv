@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
       response.playbackUrl = streamUrl;
     }
 
-    return NextResponse.json(response, { status: 200 });
+    return NextResponse.json(response, { status: 200, headers: getCorsHeaders(request) });
   } catch (error) {
     console.error("[Stream Status] Unexpected error:", error);
 
@@ -79,7 +79,35 @@ export async function GET(request: NextRequest) {
         error: "Failed to check stream status",
         checkedAt: new Date().toISOString(),
       },
-      { status: 500 }
+      { status: 500, headers: getCorsHeaders(request) }
     );
   }
+}
+
+/**
+ * Simple CORS helper. Whitelist origins to avoid exposing the API to arbitrary sites.
+ */
+const ALLOWED_ORIGINS = [
+  "https://www.jeezy-tv.com",
+  "https://jeezy-tv.com",
+  "https://stream.dontono.fr",
+];
+
+function getCorsHeaders(request: NextRequest) {
+  const origin = request.headers.get("origin") || "";
+  const allowOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : "null";
+  return {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Credentials": "true",
+  };
+}
+
+export function OPTIONS(request: NextRequest) {
+  // Preflight response
+  return new NextResponse(null, {
+    status: 204,
+    headers: getCorsHeaders(request),
+  });
 }
