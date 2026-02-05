@@ -40,11 +40,35 @@ const ADMIN_ROUTES = [
 ];
 
 export function middleware(req: NextRequest) {
+  // ----- CORS: autoriser uniquement nos domaines (préflight + réponses) -----
+  const origin = req.headers.get('origin') ?? '';
+  const ALLOWED_ORIGINS = new Set([
+    'https://jeezy-tv.com',
+    'https://www.jeezy-tv.com',
+  ]);
+
+  // Répondre aux préflight OPTIONS immédiatement
+  if (req.method === 'OPTIONS') {
+    const headers = new Headers();
+    if (ALLOWED_ORIGINS.has(origin)) {
+      headers.set('Access-Control-Allow-Origin', origin);
+      headers.set('Access-Control-Allow-Credentials', 'true');
+      headers.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS,PUT,DELETE');
+      headers.set('Access-Control-Allow-Headers', 'Authorization,Content-Type,Accept');
+    }
+    return new NextResponse(null, { status: 204, headers });
+  }
+
   const { pathname } = req.nextUrl;
 
   // 1️⃣  Routes publiques - laisser passer
   if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
-    return NextResponse.next();
+    const res = NextResponse.next();
+    if (ALLOWED_ORIGINS.has(origin)) {
+      res.headers.set('Access-Control-Allow-Origin', origin);
+      res.headers.set('Access-Control-Allow-Credentials', 'true');
+    }
+    return res;
   }
 
   // 2️⃣  Vérifier la présence du cookie de session NextAuth
@@ -53,21 +77,36 @@ export function middleware(req: NextRequest) {
 
   if (!token) {
     // ❌ Pas authentifié
-    if (pathname.startsWith("/api")) {
+    if (pathname.startsWith('/api')) {
+      const headers = new Headers();
+      if (ALLOWED_ORIGINS.has(origin)) {
+        headers.set('Access-Control-Allow-Origin', origin);
+        headers.set('Access-Control-Allow-Credentials', 'true');
+      }
       return NextResponse.json(
-        { error: "Unauthorized", code: "UNAUTHENTICATED" },
-        { status: 401 }
+        { error: 'Unauthorized', code: 'UNAUTHENTICATED' },
+        { status: 401, headers }
       );
     }
     // Rediriger vers signin pour les pages
-    return NextResponse.redirect(new URL("/auth/signin", req.url));
+    const redirectRes = NextResponse.redirect(new URL('/auth/signin', req.url));
+    if (ALLOWED_ORIGINS.has(origin)) {
+      redirectRes.headers.set('Access-Control-Allow-Origin', origin);
+      redirectRes.headers.set('Access-Control-Allow-Credentials', 'true');
+    }
+    return redirectRes;
   }
 
   // ✅ Session présente - laisser les routes protégées passer
   // La vérification complète des rôles se fera côté serveur (auth()) dans les API routes
   // Le middleware fait juste vérifier la présence de la session
 
-  return NextResponse.next();
+  const finalRes = NextResponse.next();
+  if (ALLOWED_ORIGINS.has(origin)) {
+    finalRes.headers.set('Access-Control-Allow-Origin', origin);
+    finalRes.headers.set('Access-Control-Allow-Credentials', 'true');
+  }
+  return finalRes;
 }
 
 export const config = {
