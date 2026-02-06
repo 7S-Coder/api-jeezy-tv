@@ -55,10 +55,13 @@ export async function POST(request: NextRequest) {
 
     if (existingUser) {
       return NextResponse.json(
-        { error: "Email already registered" },
-        { 
+        {
+          error: "EMAIL_ALREADY_REGISTERED",
+          message: "Cet e‑mail est déjà utilisé — veuillez en choisir un autre.",
+        },
+        {
           status: 409,
-          headers: { "Access-Control-Allow-Origin": "*" }
+          headers: { "Access-Control-Allow-Origin": "*" },
         }
       );
     }
