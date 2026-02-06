@@ -32,7 +32,7 @@ export async function sendVerificationEmail(
         <a href="${verificationLink}" style="
           display: inline-block;
           padding: 12px 24px;
-          background-color: #00ff41;
+          background-color: var(--accent, #00ff41);
           color: #000000;
           text-decoration: none;
           border-radius: 4px;
@@ -43,7 +43,7 @@ export async function sendVerificationEmail(
         <p>Ou copiez ce lien dans votre navigateur:</p>
         <p><code>${verificationLink}</code></p>
         <p>Ce lien expire dans 24 heures.</p>
-        <hr style="margin-top: 40px; border: none; border-top: 1px solid #00ff41;" />
+        <hr style="margin-top: 40px; border: none; border-top: 1px solid var(--accent, #00ff41);" />
         <p style="color: #999;">Si vous n'avez pas créé ce compte, ignorez cet email.</p>
       `,
     });
@@ -79,7 +79,7 @@ export async function sendPasswordResetEmail(
         <a href="${resetLink}" style="
           display: inline-block;
           padding: 12px 24px;
-          background-color: #00ff41;
+          background-color: var(--accent, #00ff41);
           color: #000000;
           text-decoration: none;
           border-radius: 4px;
@@ -88,7 +88,7 @@ export async function sendPasswordResetEmail(
           Réinitialiser le mot de passe
         </a>
         <p>Ce lien expire dans 1 heure.</p>
-        <hr style="margin-top: 40px; border: none; border-top: 1px solid #00ff41;" />
+        <hr style="margin-top: 40px; border: none; border-top: 1px solid var(--accent, #00ff41);" />
         <p style="color: #999;">Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.</p>
       `,
     });
