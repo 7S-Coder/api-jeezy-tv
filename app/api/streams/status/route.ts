@@ -66,7 +66,8 @@ export async function GET(request: NextRequest) {
 
     // Ajouter l'URL de lecture seulement si le stream est actif
     if (isLive) {
-      response.playbackUrl = streamUrl;
+      // Forcer le schéma HTTPS pour éviter les problèmes de mixed-content
+      response.playbackUrl = streamUrl.replace(/^http:\/\//i, 'https://');
     }
 
     return NextResponse.json(response, { status: 200, headers: getCorsHeaders(request) });
