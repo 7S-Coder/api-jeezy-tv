@@ -93,15 +93,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Déclaré hors du try pour être accessible dans le catch
+    const planId = config.planId;
+
     try {
       // DEBUG: log plan and environment used for PayPal calls
       console.log('[create-vip-subscription] requested plan:', plan);
-      console.log('[create-vip-subscription] env plan monthly:', process.env.PAYPAL_VIP_MONTHLY_PLAN_ID);
-      console.log('[create-vip-subscription] env plan annual:', process.env.PAYPAL_VIP_ANNUAL_PLAN_ID);
+      console.log('[create-vip-subscription] resolved planId:', planId);
+      console.log('[create-vip-subscription] env PAYPAL_VIP_MONTHLY_PLAN_ID:', process.env.PAYPAL_VIP_MONTHLY_PLAN_ID || '(not set)');
+      console.log('[create-vip-subscription] env PAYPAL_VIP_ANNUAL_PLAN_ID:', process.env.PAYPAL_VIP_ANNUAL_PLAN_ID || '(not set)');
+      console.log('[create-vip-subscription] env PAYPAL_MONTHLY_PLAN_ID:', process.env.PAYPAL_MONTHLY_PLAN_ID || '(not set)');
+      console.log('[create-vip-subscription] env PAYPAL_ANNUAL_PLAN_ID:', process.env.PAYPAL_ANNUAL_PLAN_ID || '(not set)');
       console.log('[create-vip-subscription] PAYPAL_API_BASE_URL:', process.env.PAYPAL_API_BASE_URL);
       console.log('[create-vip-subscription] NEXT_PUBLIC_PAYPAL_CLIENT_ID:', (process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID||'').substring(0,20)+'...');
-      // Utiliser le plan PayPal existant (pas de création dynamique)
-      const planId = config.planId;
 
       // Créer la souscription PayPal
       if (!user.email) {
@@ -141,11 +145,19 @@ export async function POST(request: NextRequest) {
       });
     } catch (paypalError) {
         console.error('[create-vip-subscription] PayPal Error:', paypalError);
+        console.error('[create-vip-subscription] Used planId:', planId);
         // Try to extract PayPal raw error if attached
         const paypalRaw = (paypalError as any)?.paypal || null;
         const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || '';
         return NextResponse.json(
-          { error: String(paypalError), paypalError: paypalRaw, usedPlanId: planId },
+          {
+            error: paypalError instanceof Error ? paypalError.message : String(paypalError),
+            paypalError: paypalRaw,
+            usedPlanId: planId,
+            envMonthly: process.env.PAYPAL_VIP_MONTHLY_PLAN_ID || process.env.PAYPAL_MONTHLY_PLAN_ID || '(fallback hardcoded)',
+            envAnnual: process.env.PAYPAL_VIP_ANNUAL_PLAN_ID || process.env.PAYPAL_ANNUAL_PLAN_ID || '(fallback hardcoded)',
+            apiBase: process.env.PAYPAL_API_BASE_URL || 'https://api.sandbox.paypal.com',
+          },
           { status: 400, headers: { "Access-Control-Allow-Origin": FRONTEND, "Access-Control-Allow-Credentials": "true" } }
         );
     }
