@@ -139,8 +139,8 @@ async function createPlan(name, description, price, interval, accessToken) {
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          product_id: 'PROD_VIP',
+            body: JSON.stringify({
+              product_id: env.PAYPAL_PRODUCT_ID || 'PROD_VIP',
           name,
           description,
           type: 'SUBSCRIPTION',
@@ -192,6 +192,53 @@ async function createPlan(name, description, price, interval, accessToken) {
   }
 }
 
+async function ensureProduct(accessToken) {
+  try {
+    const configured = env.PAYPAL_PRODUCT_ID;
+    if (configured) {
+      // check if product exists
+      const check = await fetch(`${PAYPAL_API_BASE}/v1/catalogs/products/${configured}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (check.ok) {
+        console.log(`✓ Using existing product id: ${configured}`);
+        return configured;
+      }
+      console.log(`ℹ️ PAYPAL_PRODUCT_ID ${configured} not found in PayPal. Will create a new product.`);
+    }
+
+    // Create product
+    const response = await fetch(`${PAYPAL_API_BASE}/v1/catalogs/products`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: 'JeezyTV VIP Product',
+        description: 'JeezyTV VIP subscription product',
+        type: 'SERVICE',
+        category: 'SOFTWARE',
+      }),
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`Failed to create product: ${err}`);
+    }
+
+    const data = await response.json();
+    const newId = data.id;
+    console.log(`✓ Created product id: ${newId}`);
+    // update env map so createPlan uses it
+    env.PAYPAL_PRODUCT_ID = newId;
+    return newId;
+  } catch (error) {
+    console.error('❌ Failed to ensure product:', error);
+    throw error;
+  }
+}
+
 async function main() {
   console.log('🔄 Starting PayPal plans recreation...\n');
 
@@ -221,6 +268,9 @@ async function main() {
 
     // Create new plans
     console.log('\n✨ Creating new plans with updated prices...\n');
+
+    // Ensure a valid product exists (uses PAYPAL_PRODUCT_ID or creates one)
+    await ensureProduct(accessToken);
 
     const monthlyPlanId = await createPlan(
       'VIP Monthly',
