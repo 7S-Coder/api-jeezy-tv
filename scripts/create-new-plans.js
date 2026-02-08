@@ -33,7 +33,7 @@ function loadEnv() {
 }
 
 const env = loadEnv();
-const PAYPAL_API_BASE = env.PAYPAL_API_BASE_URL || 'https://api.sandbox.paypal.com';
+const PAYPAL_API_BASE = env.PAYPAL_API_BASE_URL || 'https://api.paypal.com';
 const CLIENT_ID = env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
 const CLIENT_SECRET = env.PAYPAL_CLIENT_SECRET;
 const PRODUCT_ID = env.PAYPAL_PRODUCT_ID;

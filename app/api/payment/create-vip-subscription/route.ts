@@ -11,8 +11,8 @@ import { getJWTSecret } from "@/lib/auth/get-secret";
 // PayPal VIP Plan IDs (created with updated prices)
 // Monthly: €2.99/month, Annual: €33.99/year
 // Prefer environment variables so we can change plans without editing code.
-const VIP_MONTHLY_PLAN_ID = process.env.PAYPAL_VIP_MONTHLY_PLAN_ID || process.env.PAYPAL_MONTHLY_PLAN_ID || 'P-2MC93743TL870722ANFV2JRQ';
-const VIP_ANNUAL_PLAN_ID = process.env.PAYPAL_VIP_ANNUAL_PLAN_ID || process.env.PAYPAL_ANNUAL_PLAN_ID || 'P-9EB60680XC860510TNFV2JRQ';
+const VIP_MONTHLY_PLAN_ID = process.env.PAYPAL_VIP_MONTHLY_PLAN_ID || process.env.PAYPAL_MONTHLY_PLAN_ID || 'P-37024407VP002012WNGEGAOA';
+const VIP_ANNUAL_PLAN_ID = process.env.PAYPAL_VIP_ANNUAL_PLAN_ID || process.env.PAYPAL_ANNUAL_PLAN_ID || 'P-6JK65150AK096063KNGEGAOA';
 
 export async function OPTIONS(request: NextRequest) {
   const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
             usedPlanId: planId,
             envMonthly: process.env.PAYPAL_VIP_MONTHLY_PLAN_ID || process.env.PAYPAL_MONTHLY_PLAN_ID || '(fallback hardcoded)',
             envAnnual: process.env.PAYPAL_VIP_ANNUAL_PLAN_ID || process.env.PAYPAL_ANNUAL_PLAN_ID || '(fallback hardcoded)',
-            apiBase: process.env.PAYPAL_API_BASE_URL || 'https://api.sandbox.paypal.com',
+            apiBase: process.env.PAYPAL_API_BASE_URL || 'https://api.paypal.com',
           },
           { status: 400, headers: { "Access-Control-Allow-Origin": FRONTEND, "Access-Control-Allow-Credentials": "true" } }
         );

@@ -7,7 +7,7 @@
 export async function getPayPalAccessToken(): Promise<string> {
   const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID?.trim();
   const clientSecret = process.env.PAYPAL_CLIENT_SECRET?.trim();
-  const apiBase = process.env.PAYPAL_API_BASE_URL || 'https://api.sandbox.paypal.com';
+  const apiBase = process.env.PAYPAL_API_BASE_URL || 'https://api.paypal.com';
 
   if (!clientId || !clientSecret) {
     console.error('[PayPal] Missing credentials:', {
@@ -65,7 +65,7 @@ export async function createPayPalProduct(productDetails: {
   type: 'SERVICE' | 'PHYSICAL';
 }): Promise<string> {
   const accessToken = await getPayPalAccessToken();
-  const apiBase = process.env.PAYPAL_API_BASE_URL || 'https://api.sandbox.paypal.com';
+  const apiBase = process.env.PAYPAL_API_BASE_URL || 'https://api.paypal.com';
 
   const payload = {
     name: productDetails.name,
@@ -114,7 +114,7 @@ export async function createPayPalPlan(planDetails: {
   currency?: string;
 }): Promise<string> {
   const accessToken = await getPayPalAccessToken();
-  const apiBase = process.env.PAYPAL_API_BASE_URL || 'https://api.sandbox.paypal.com';
+  const apiBase = process.env.PAYPAL_API_BASE_URL || 'https://api.paypal.com';
   const productId = process.env.PAYPAL_PRODUCT_ID || 'PROD_JEEZY_VIP';
 
   const planPayload = {
@@ -174,7 +174,7 @@ export async function createPayPalSubscription(subscriptionDetails: {
   returnUrl: string;
 }): Promise<{ subscriptionId: string; approveUrl: string }> {
   const accessToken = await getPayPalAccessToken();
-  const apiBase = process.env.PAYPAL_API_BASE_URL || 'https://api.sandbox.paypal.com';
+  const apiBase = process.env.PAYPAL_API_BASE_URL || 'https://api.paypal.com';
 
   const subscriptionPayload = {
     plan_id: subscriptionDetails.planId,

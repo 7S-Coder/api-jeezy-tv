@@ -43,7 +43,7 @@ export async function GET(request: Request) {
     // Capturer la commande sur PayPal
     const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID?.trim();
     const clientSecret = process.env.PAYPAL_CLIENT_SECRET?.trim();
-    const apiBase = process.env.PAYPAL_API_BASE_URL || 'https://api.sandbox.paypal.com';
+    const apiBase = process.env.PAYPAL_API_BASE_URL || 'https://api.paypal.com';
 
     // Obtenir le token d'accès
     const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
