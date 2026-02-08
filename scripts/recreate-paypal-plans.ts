@@ -33,6 +33,7 @@ const env = loadEnv();
 const PAYPAL_API_BASE = env.PAYPAL_API_BASE_URL || 'https://api.sandbox.paypal.com';
 const CLIENT_ID = env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
 const CLIENT_SECRET = env.PAYPAL_CLIENT_SECRET;
+const PAYPAL_PRODUCT_ID_ENV = env.PAYPAL_PRODUCT_ID || '';
 
 if (!CLIENT_ID || !CLIENT_SECRET) {
   console.error('❌ Missing NEXT_PUBLIC_PAYPAL_CLIENT_ID or PAYPAL_CLIENT_SECRET in .env');
@@ -89,7 +90,7 @@ async function getAccessToken(): Promise<string> {
 async function listPlans(accessToken: string): Promise<PayPalPlan[]> {
   try {
     const response = await fetch(
-      `${PAYPAL_API_BASE}/v1/billing/plans?page_size=100`,
+      `${PAYPAL_API_BASE}/v1/billing/plans?page_size=20`,
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -97,11 +98,14 @@ async function listPlans(accessToken: string): Promise<PayPalPlan[]> {
       }
     );
 
+    const responseText = await response.text();
     if (!response.ok) {
-      throw new Error(`Failed to list plans: ${response.status}`);
+      console.error('[PayPal listPlans] status:', response.status, response.statusText);
+      console.error('[PayPal listPlans] body:', responseText);
+      throw new Error(`Failed to list plans: ${response.status} - ${responseText}`);
     }
 
-    const data = await response.json() as { plans: PayPalPlan[] };
+    const data = JSON.parse(responseText) as { plans: PayPalPlan[] };
     return data.plans || [];
   } catch (error) {
     console.error('❌ Failed to list plans:', error);
@@ -144,6 +148,7 @@ async function updatePlanStatus(
 }
 
 async function createPlan(
+  productId: string,
   name: string,
   description: string,
   price: string,
@@ -160,7 +165,7 @@ async function createPlan(
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          product_id: 'PROD_VIP',
+          product_id: productId,
           name,
           description,
           type: 'SUBSCRIPTION',
@@ -196,19 +201,59 @@ async function createPlan(
         }),
       }
     );
-
+    const responseText = await response.text();
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Failed to create plan: ${JSON.stringify(errorData)}`);
+      console.error('[PayPal createPlan] status:', response.status, response.statusText);
+      console.error('[PayPal createPlan] body:', responseText);
+      let errMsg = responseText;
+      try {
+        const parsed = JSON.parse(responseText);
+        errMsg = parsed && parsed.message ? parsed.message : responseText;
+      } catch (_) {}
+      throw new Error(`Failed to create plan: ${response.status} - ${errMsg}`);
     }
 
-    const data = await response.json() as { id: string };
+    const data = JSON.parse(responseText) as { id: string };
     const planId = data.id;
     console.log(`✓ Created plan: ${name} (ID: ${planId}, Price: €${price}/${interval})`);
     return planId;
   } catch (error) {
     console.error(`❌ Failed to create plan ${name}:`, error);
     throw error;
+  }
+}
+
+async function createProduct(accessToken: string, productName = 'JEEZY_VIP') {
+  try {
+    const payload = {
+      name: productName,
+      description: 'Jeezy TV VIP Subscription',
+      type: 'SERVICE',
+      category: 'SOFTWARE',
+    };
+
+    const res = await fetch(`${PAYPAL_API_BASE}/v1/catalogs/products`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const text = await res.text();
+    if (!res.ok) {
+      console.error('[PayPal createProduct] status:', res.status, res.statusText);
+      console.error('[PayPal createProduct] body:', text);
+      throw new Error(`Failed to create product: ${res.status} - ${text}`);
+    }
+
+    const data = JSON.parse(text);
+    console.log('✓ Created product:', data.id);
+    return data.id;
+  } catch (err) {
+    console.error('❌ Failed to create PayPal product:', err);
+    throw err;
   }
 }
 
@@ -242,7 +287,18 @@ async function main() {
     // Create new plans
     console.log('\n✨ Creating new plans with updated prices...\n');
 
+    // Determine product id: use env if set, otherwise create a new product
+    let productId = PAYPAL_PRODUCT_ID_ENV;
+    if (!productId) {
+      console.log('No PAYPAL_PRODUCT_ID in .env — creating product...');
+      productId = await createProduct(accessToken);
+      console.log('New product id:', productId);
+    } else {
+      console.log('Using PAYPAL_PRODUCT_ID from .env:', productId);
+    }
+
     const monthlyPlanId = await createPlan(
+      productId,
       'VIP Monthly',
       'VIP Monthly Subscription - €2.99/month',
       '2.99',
@@ -251,6 +307,7 @@ async function main() {
     );
 
     const annualPlanId = await createPlan(
+      productId,
       'VIP Annual',
       'VIP Annual Subscription - €33.99/year',
       '33.99',

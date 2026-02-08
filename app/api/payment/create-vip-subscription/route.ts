@@ -10,8 +10,9 @@ import { getJWTSecret } from "@/lib/auth/get-secret";
 
 // PayPal VIP Plan IDs (created with updated prices)
 // Monthly: €2.99/month, Annual: €33.99/year
-const VIP_MONTHLY_PLAN_ID = 'P-2MC93743TL870722ANFV2JRQ';
-const VIP_ANNUAL_PLAN_ID = 'P-9EB60680XC860510TNFV2JRQ';
+// Prefer environment variables so we can change plans without editing code.
+const VIP_MONTHLY_PLAN_ID = process.env.PAYPAL_VIP_MONTHLY_PLAN_ID || process.env.PAYPAL_MONTHLY_PLAN_ID || 'P-2MC93743TL870722ANFV2JRQ';
+const VIP_ANNUAL_PLAN_ID = process.env.PAYPAL_VIP_ANNUAL_PLAN_ID || process.env.PAYPAL_ANNUAL_PLAN_ID || 'P-9EB60680XC860510TNFV2JRQ';
 
 export async function OPTIONS(request: NextRequest) {
   const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
@@ -126,16 +127,15 @@ export async function POST(request: NextRequest) {
         message: "Abonnement créé. Cliquez sur approveUrl pour approuver chez PayPal.",
       };
 
-      console.log("[create-vip-subscription] Subscription created:", subscriptionData);
 
-      const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
+      const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || '';
       return NextResponse.json(subscriptionData, {
         status: 200,
         headers: { "Access-Control-Allow-Origin": FRONTEND, "Access-Control-Allow-Credentials": "true" },
       });
     } catch (paypalError) {
       console.error("[create-vip-subscription] PayPal Error:", paypalError);
-      const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
+      const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || '';
       return NextResponse.json(
         { error: String(paypalError) },
         { status: 400, headers: { "Access-Control-Allow-Origin": FRONTEND, "Access-Control-Allow-Credentials": "true" } }
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     console.error("[create-vip-subscription] Error:", error);
-    const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
+    const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || '';
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500, headers: { "Access-Control-Allow-Origin": FRONTEND, "Access-Control-Allow-Credentials": "true" } }
