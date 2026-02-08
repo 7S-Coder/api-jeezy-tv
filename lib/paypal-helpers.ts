@@ -205,7 +205,10 @@ export async function createPayPalSubscription(subscriptionDetails: {
   if (!response.ok) {
     const error = await response.json();
     console.error('[PayPal Subscription Error]', error);
-    throw new Error(`Failed to create subscription: ${error.message}`);
+    const err = new Error(`Failed to create subscription: ${error.message}`);
+    // attach raw PayPal error for higher-level handlers to inspect
+    try { (err as any).paypal = error; } catch (e) {}
+    throw err;
   }
 
   const data = await response.json();

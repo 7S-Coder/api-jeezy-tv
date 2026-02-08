@@ -94,6 +94,12 @@ export async function POST(request: NextRequest) {
     }
 
     try {
+      // DEBUG: log plan and environment used for PayPal calls
+      console.log('[create-vip-subscription] requested plan:', plan);
+      console.log('[create-vip-subscription] env plan monthly:', process.env.PAYPAL_VIP_MONTHLY_PLAN_ID);
+      console.log('[create-vip-subscription] env plan annual:', process.env.PAYPAL_VIP_ANNUAL_PLAN_ID);
+      console.log('[create-vip-subscription] PAYPAL_API_BASE_URL:', process.env.PAYPAL_API_BASE_URL);
+      console.log('[create-vip-subscription] NEXT_PUBLIC_PAYPAL_CLIENT_ID:', (process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID||'').substring(0,20)+'...');
       // Utiliser le plan PayPal existant (pas de création dynamique)
       const planId = config.planId;
 
@@ -134,12 +140,14 @@ export async function POST(request: NextRequest) {
         headers: { "Access-Control-Allow-Origin": FRONTEND, "Access-Control-Allow-Credentials": "true" },
       });
     } catch (paypalError) {
-      console.error("[create-vip-subscription] PayPal Error:", paypalError);
-      const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || '';
-      return NextResponse.json(
-        { error: String(paypalError) },
-        { status: 400, headers: { "Access-Control-Allow-Origin": FRONTEND, "Access-Control-Allow-Credentials": "true" } }
-      );
+        console.error('[create-vip-subscription] PayPal Error:', paypalError);
+        // Try to extract PayPal raw error if attached
+        const paypalRaw = (paypalError as any)?.paypal || null;
+        const FRONTEND = process.env.NEXT_PUBLIC_APP_URL || '';
+        return NextResponse.json(
+          { error: String(paypalError), paypalError: paypalRaw, usedPlanId: planId },
+          { status: 400, headers: { "Access-Control-Allow-Origin": FRONTEND, "Access-Control-Allow-Credentials": "true" } }
+        );
     }
   } catch (error) {
     console.error("[create-vip-subscription] Error:", error);
