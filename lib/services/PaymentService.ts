@@ -17,12 +17,13 @@ export interface PayPalWebhookPayload {
   create_time: string;
   resource: {
     id: string;
-    status: string;
+    status?: string;
     amount?: {
       value: string;
       currency_code: string;
     };
     custom_id?: string;
+    [key: string]: unknown;
   };
 }
 
