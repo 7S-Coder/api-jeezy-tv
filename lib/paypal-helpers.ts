@@ -172,12 +172,15 @@ export async function createPayPalSubscription(subscriptionDetails: {
   subscriberEmail: string;
   subscriberName: string;
   returnUrl: string;
+  customId?: string;
 }): Promise<{ subscriptionId: string; approveUrl: string }> {
   const accessToken = await getPayPalAccessToken();
   const apiBase = process.env.PAYPAL_API_BASE_URL || 'https://api.paypal.com';
 
   const subscriptionPayload = {
     plan_id: subscriptionDetails.planId,
+    // custom_id permet au webhook de retrouver l'utilisateur
+    custom_id: subscriptionDetails.customId || undefined,
     subscriber: {
       email_address: subscriptionDetails.subscriberEmail,
       name: {

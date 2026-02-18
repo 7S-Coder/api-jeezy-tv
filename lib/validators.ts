@@ -25,7 +25,7 @@ export const PayPalWebhookSchema = z.object({
   create_time: z.string(),
   resource: z.object({
     id: z.string(),
-    status: z.string(),
+    status: z.string().optional(),
     amount: z
       .object({
         value: z.string(),
@@ -33,7 +33,24 @@ export const PayPalWebhookSchema = z.object({
       })
       .optional(),
     custom_id: z.string().optional(),
-  }),
+    // Champs spécifiques aux abonnements PayPal
+    plan_id: z.string().optional(),
+    subscriber: z.object({
+      email_address: z.string().optional(),
+      name: z.object({
+        given_name: z.string().optional(),
+        surname: z.string().optional(),
+      }).optional(),
+    }).optional(),
+    billing_info: z.object({
+      last_payment: z.object({
+        amount: z.object({
+          value: z.string(),
+          currency_code: z.string(),
+        }).optional(),
+      }).optional(),
+    }).optional(),
+  }).passthrough(),
 });
 
 // ============ TRANSACTIONS ============

@@ -121,6 +121,7 @@ export async function POST(request: NextRequest) {
         subscriberEmail: user.email,
         subscriberName: user.name || 'User',
         returnUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/return`,
+        customId: `${user.id}|${plan}`,
       });
 
       const subscriptionData = {

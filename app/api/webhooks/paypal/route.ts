@@ -104,15 +104,110 @@ export async function POST(request: NextRequest) {
     const { orderId, status, amount, currency, customId } = parsed.data;
 
     // 6️⃣  Filtrer les événements importants
-    // Nous ne traitons que: CHECKOUT.ORDER.COMPLETED
-    if (webhook.event_type !== "CHECKOUT.ORDER.COMPLETED") {
+    const HANDLED_EVENTS = [
+      "CHECKOUT.ORDER.COMPLETED",           // Commandes one-shot (Jeez)
+      "BILLING.SUBSCRIPTION.ACTIVATED",     // Abonnement VIP activé
+      "BILLING.SUBSCRIPTION.RENEWED",       // Renouvellement automatique
+      "PAYMENT.SALE.COMPLETED",             // Paiement récurrent reçu
+    ];
+
+    if (!HANDLED_EVENTS.includes(webhook.event_type)) {
       console.log(
         "[PayPal Webhook] Ignoring event type:",
         webhook.event_type
       );
-      // Mettre à jour l'ordre pour tracker (optionnel)
       return NextResponse.json({ status: "ignored" }, { status: 200 });
     }
+
+    // ================================================================
+    // 🆕 GESTION DES ABONNEMENTS (BILLING.SUBSCRIPTION.*)
+    // ================================================================
+    if (
+      webhook.event_type === "BILLING.SUBSCRIPTION.ACTIVATED" ||
+      webhook.event_type === "BILLING.SUBSCRIPTION.RENEWED" ||
+      webhook.event_type === "PAYMENT.SALE.COMPLETED"
+    ) {
+      const resource = webhook.resource as any;
+      const subscriptionId = resource.id;
+
+      // Extraire le custom_id qui contient "userId|plan"
+      // Pour PAYMENT.SALE.COMPLETED, le custom_id peut être dans billing_agreement_id
+      let subCustomId: string | undefined = resource.custom_id;
+      let planId: string | undefined = resource.plan_id;
+
+      // Si c'est un PAYMENT.SALE.COMPLETED, on doit chercher la subscription associée
+      if (webhook.event_type === "PAYMENT.SALE.COMPLETED" && !subCustomId) {
+        console.log("[PayPal Webhook] PAYMENT.SALE.COMPLETED - billing_agreement_id:", resource.billing_agreement_id);
+        // Le custom_id n'est pas dans PAYMENT.SALE, on skip la vérification
+        // et on cherche via l'email du payeur ou subscription existante
+        const payerEmail = resource.payer?.email_address;
+        if (payerEmail) {
+          const userByEmail = await prisma.user.findUnique({ where: { email: payerEmail } });
+          if (userByEmail) {
+            const existingSub = await prisma.vIPSubscription.findUnique({ where: { userId: userByEmail.id } });
+            if (existingSub) {
+              // Renouvellement d'un abonnement existant
+              const plan = existingSub.planType as "MONTHLY" | "QUARTERLY" | "ANNUAL";
+              const transactionId = SubscriptionService.generateTransactionId();
+              await SubscriptionService.activateVIP(userByEmail.id, plan, transactionId, subscriptionId);
+              console.log(`[PayPal Webhook] VIP renewed via PAYMENT.SALE for user ${userByEmail.id}`);
+              return NextResponse.json({ status: "processed", type: "vip_renewal", userId: userByEmail.id }, { status: 200 });
+            }
+          }
+        }
+        console.log("[PayPal Webhook] PAYMENT.SALE.COMPLETED - could not map to user, ignoring");
+        return NextResponse.json({ status: "ignored", reason: "no_user_mapping" }, { status: 200 });
+      }
+
+      if (!subCustomId) {
+        console.error("[PayPal Webhook] No custom_id in subscription event:", subscriptionId);
+        return NextResponse.json({ error: "Missing custom_id" }, { status: 400 });
+      }
+
+      // Parser le custom_id: format "userId|plan" (ex: "cmkexc52j...|vip_monthly")
+      const parts = subCustomId.split("|");
+      const userId = parts[0];
+      const planRaw = parts[1]; // ex: "vip_monthly" ou "vip_annual"
+
+      if (!userId) {
+        console.error("[PayPal Webhook] Invalid custom_id format:", subCustomId);
+        return NextResponse.json({ error: "Invalid custom_id" }, { status: 400 });
+      }
+
+      // Vérifier que l'utilisateur existe
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) {
+        console.error("[PayPal Webhook] User not found:", userId);
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
+
+      // Déterminer le plan VIP
+      let plan: "MONTHLY" | "QUARTERLY" | "ANNUAL" = "MONTHLY";
+      if (planRaw?.includes("annual") || planRaw?.includes("year")) {
+        plan = "ANNUAL";
+      } else if (planRaw?.includes("quarterly")) {
+        plan = "QUARTERLY";
+      }
+
+      // Activer/renouveler le VIP
+      const transactionId = SubscriptionService.generateTransactionId();
+      const result = await SubscriptionService.activateVIP(userId, plan, transactionId, subscriptionId);
+
+      if (!result.success) {
+        console.error("[PayPal Webhook] Failed to activate VIP:", result.error);
+        return NextResponse.json({ error: result.error }, { status: 500 });
+      }
+
+      console.log(`[PayPal Webhook] VIP ${plan} activated for user ${userId} via ${webhook.event_type}`);
+      return NextResponse.json(
+        { status: "processed", type: "vip_subscription", plan, userId },
+        { status: 200 }
+      );
+    }
+
+    // ================================================================
+    // GESTION DES COMMANDES ONE-SHOT (CHECKOUT.ORDER.COMPLETED)
+    // ================================================================
 
     // 7️⃣  Déterminer le type de produit acheté
     const productInfo = PaymentService.parseProductType(customId);
@@ -149,7 +244,6 @@ export async function POST(request: NextRequest) {
         expectedCurrency: expectedPrice.currency,
         receivedCurrency: currency,
       });
-      // ⚠️  Ne PAS traiter si les montants ne correspondent pas (fraude?)
       return NextResponse.json(
         { error: "Amount validation failed" },
         { status: 400 }
@@ -171,8 +265,7 @@ export async function POST(request: NextRequest) {
 
     const userId = paypalOrder.userId;
 
-    // 🔟 TRANSACTION ATOMIQUE: Traiter le paiement
-    // Toute l'opération doit réussir ou échouer ensemble
+    // 🔟 TRANSACTION ATOMIQUE: Traiter le paiement (one-shot)
     await prisma.$transaction(
       async (tx: Prisma.TransactionClient) => {
         // Marquer l'ordre comme vérifié
@@ -202,11 +295,10 @@ export async function POST(request: NextRequest) {
             `[PayPal Webhook] Jeez purchase completed: ${productInfo.amount} Jeez for user ${userId}`
           );
         } else if (productInfo.type === "VIP") {
-          // === ACHAT D'ABONNEMENT VIP ===
+          // === ACHAT D'ABONNEMENT VIP (one-shot) ===
           const plan = productInfo.plan as "MONTHLY" | "QUARTERLY" | "ANNUAL";
           const transactionId = SubscriptionService.generateTransactionId();
 
-          // Activer l'abonnement VIP
           await SubscriptionService.activateVIP(
             userId,
             plan,
@@ -220,9 +312,8 @@ export async function POST(request: NextRequest) {
         }
       },
       {
-        // Configuration de la transaction
-        maxWait: 5000, // Timeout de 5s
-        timeout: 10000, // Transaction timeout de 10s
+        maxWait: 5000,
+        timeout: 10000,
       }
     );
 
